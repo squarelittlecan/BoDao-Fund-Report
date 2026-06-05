@@ -24,6 +24,7 @@ const products = [
   { name: "博道惠泰优选", code: "016840", showYtd: true },
   { name: "博道远航", code: "007126", showYtd: true },
   { name: "博道和裕多元稳健30天持有", code: "021323", showYtd: true },
+  { name: "博道消费智航", code: "010998", showYtd: true },
 ];
 
 function setMode(nextMode) {
