@@ -18,6 +18,8 @@ http://127.0.0.1:8765
 
 Use `查最新` for daily operation. The page queries the internet, generates the report, and shows a copy button.
 
+For Alibaba Cloud deployment, see `ALIYUN_DEPLOY.md`.
+
 To let people on the same local network access it:
 
 ```bash
