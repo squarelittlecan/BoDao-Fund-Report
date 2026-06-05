@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>基金净值播报</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="loginOverlay" class="loginOverlay hidden">
+      <form id="loginForm" class="loginBox">
+        <p class="eyebrow">Access</p>
+        <h2>输入访问密码</h2>
+        <label class="field">
+          <span>密码</span>
+          <input id="passwordInput" type="password" autocomplete="current-password" />
+        </label>
+        <button class="primary" type="submit">进入</button>
+        <p id="loginError" class="loginError"></p>
+      </form>
+    </div>
+
+    <main class="app">
+      <section class="panel controls" aria-label="查询设置">
+        <div>
+          <p class="eyebrow">BoDao Fund Report</p>
+          <h1>基金净值播报生成器</h1>
+        </div>
+
+        <div class="mode" role="group" aria-label="查询方式">
+          <button id="latestBtn" class="modeButton active" type="button">查最新</button>
+          <button id="dateBtn" class="modeButton" type="button">指定日期</button>
+        </div>
+
+        <label class="field" id="dateField">
+          <span>净值日期</span>
+          <input id="dateInput" type="date" />
+        </label>
+
+        <button id="queryBtn" class="primary" type="button">
+          查询并生成文案
+        </button>
+
+        <p class="hint">
+          默认使用天天基金/东方财富公开数据。若阶段收益无法匹配输入日期，工具会拒绝生成。
+        </p>
+      </section>
+
+      <section class="panel result" aria-label="查询结果">
+        <div class="resultHeader">
+          <div>
+            <p class="eyebrow">Report</p>
+            <h2 id="statusTitle">等待查询</h2>
+          </div>
+          <button id="copyBtn" class="ghost" type="button" disabled>复制</button>
+        </div>
+
+        <pre id="reportOutput" class="reportText">点击“查询并生成文案”后，真实数据会显示在这里。</pre>
+
+        <div id="dataTableWrap" class="tableWrap hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>产品</th>
+                <th>代码</th>
+                <th>单日</th>
+                <th>今年来</th>
+                <th>成立来</th>
+              </tr>
+            </thead>
+            <tbody id="dataRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

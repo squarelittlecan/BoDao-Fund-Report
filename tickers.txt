@@ -1,0 +1,5 @@
+# One ticker per line.
+# Start small while testing API keys and rate limits.
+AAPL
+MSFT
+NVDA
