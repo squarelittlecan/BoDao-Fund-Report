@@ -13,11 +13,13 @@ const loginForm = document.querySelector("#loginForm");
 const passwordInput = document.querySelector("#passwordInput");
 const loginError = document.querySelector("#loginError");
 const fundList = document.querySelector("#fundList");
+const fundSearchInput = document.querySelector("#fundSearchInput");
 const selectAllBtn = document.querySelector("#selectAllBtn");
 const clearAllBtn = document.querySelector("#clearAllBtn");
 const metricList = document.querySelector("#metricList");
 const selectAllMetricsBtn = document.querySelector("#selectAllMetricsBtn");
 const clearAllMetricsBtn = document.querySelector("#clearAllMetricsBtn");
+const dataHead = document.querySelector("#dataHead");
 
 let mode = "latest";
 
@@ -93,6 +95,7 @@ function renderFundPicker() {
   for (const product of products) {
     const label = document.createElement("label");
     label.className = `fundOption${product.disabled ? " disabled" : ""}`;
+    label.dataset.search = `${product.name} ${product.code}`.toLowerCase();
     label.innerHTML = `
       <input type="checkbox" name="fund" value="${product.code}" ${product.disabled ? "disabled" : "checked"} />
       <span>
@@ -101,6 +104,13 @@ function renderFundPicker() {
       </span>
     `;
     fundList.appendChild(label);
+  }
+}
+
+function filterFunds() {
+  const keyword = fundSearchInput.value.trim().toLowerCase();
+  for (const option of fundList.querySelectorAll(".fundOption")) {
+    option.classList.toggle("filtered", Boolean(keyword) && !option.dataset.search.includes(keyword));
   }
 }
 
@@ -154,18 +164,38 @@ function setLoading(isLoading) {
   queryBtn.textContent = isLoading ? "正在查询真实数据..." : "查询并生成文案";
 }
 
-function renderRows(rows) {
+function tableColumns(metrics) {
+  const columns = [
+    { key: "name", label: "产品", value: (row) => row.name },
+    { key: "code", label: "代码", value: (row) => row.code },
+  ];
+  if (metrics.some((metric) => metric.key === "inception_date")) {
+    columns.push({ key: "inception_date", label: "成立日期", value: (row) => row.inception_date || "-" });
+  }
+  columns.push({ key: "daily_return", label: "单日", value: (row) => row.daily_return });
+  for (const metric of metrics.filter((item) => item.type === "stage")) {
+    columns.push({
+      key: metric.key,
+      label: metric.label,
+      value: (row) => {
+        if (metric.key === "今年来" && !row.show_ytd) {
+          return "-";
+        }
+        return row.stage_returns?.[metric.key] || (metric.key === "今年来" ? row.ytd_return : "") || "-";
+      },
+    });
+  }
+  columns.push({ key: "inception_return", label: "成立来", value: (row) => row.inception_return });
+  return columns;
+}
+
+function renderRows(rows, metrics) {
+  const columns = tableColumns(metrics);
+  dataHead.innerHTML = columns.map((column) => `<th>${column.label}</th>`).join("");
   dataRows.innerHTML = "";
   for (const row of rows) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${row.name}</td>
-      <td>${row.code}</td>
-      <td>${row.inception_date || "-"}</td>
-      <td>${row.daily_return}</td>
-      <td>${row.ytd_return || "-"}</td>
-      <td>${row.inception_return}</td>
-    `;
+    tr.innerHTML = columns.map((column) => `<td>${column.value(row)}</td>`).join("");
     dataRows.appendChild(tr);
   }
   dataTableWrap.classList.remove("hidden");
@@ -479,7 +509,7 @@ async function queryReport() {
     statusTitle.textContent = `已生成 ${payload.date}`;
     reportOutput.textContent = payload.report;
     copyBtn.disabled = false;
-    renderRows(payload.rows);
+    renderRows(payload.rows, metrics);
   } catch (error) {
     statusTitle.textContent = "未生成";
     reportOutput.classList.add("error");
@@ -539,6 +569,7 @@ selectAllBtn.addEventListener("click", () => setAllFunds(true));
 clearAllBtn.addEventListener("click", () => setAllFunds(false));
 selectAllMetricsBtn.addEventListener("click", () => setAllMetrics(true));
 clearAllMetricsBtn.addEventListener("click", () => setAllMetrics(false));
+fundSearchInput.addEventListener("input", filterFunds);
 
 renderFundPicker();
 renderMetricPicker();

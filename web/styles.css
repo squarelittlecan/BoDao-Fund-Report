@@ -151,6 +151,11 @@ h2 {
   max-height: 220px;
 }
 
+.searchInput {
+  min-height: 40px;
+  border-radius: 8px;
+}
+
 .fundOption {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
@@ -174,6 +179,10 @@ h2 {
 .fundOption.disabled {
   opacity: 0.56;
   cursor: not-allowed;
+}
+
+.fundOption.filtered {
+  display: none;
 }
 
 .fundName {

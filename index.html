@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>基金净值播报</title>
-    <link rel="stylesheet" href="web/styles.css?v=20260605-metrics" />
+    <link rel="stylesheet" href="web/styles.css?v=20260605-table-search" />
   </head>
   <body>
     <div id="loginOverlay" class="loginOverlay hidden">
@@ -45,6 +45,7 @@
               <button id="clearAllBtn" type="button">清空</button>
             </div>
           </div>
+          <input id="fundSearchInput" class="searchInput" type="search" placeholder="搜索基金名称或代码" />
           <div id="fundList" class="fundList"></div>
         </section>
 
@@ -82,14 +83,7 @@
         <div id="dataTableWrap" class="tableWrap hidden">
           <table>
             <thead>
-              <tr>
-                <th>产品</th>
-                <th>代码</th>
-                <th>成立日期</th>
-                <th>单日</th>
-                <th>今年来</th>
-                <th>成立来</th>
-              </tr>
+              <tr id="dataHead"></tr>
             </thead>
             <tbody id="dataRows"></tbody>
           </table>
@@ -97,6 +91,6 @@
       </section>
     </main>
 
-    <script src="web/app.js?v=20260605-metrics"></script>
+    <script src="web/app.js?v=20260605-table-search"></script>
   </body>
 </html>
