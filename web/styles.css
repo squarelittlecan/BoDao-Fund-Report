@@ -167,6 +167,11 @@ h2 {
   accent-color: var(--accent);
 }
 
+.fundOption.disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 .fundName {
   display: block;
   color: var(--ink);

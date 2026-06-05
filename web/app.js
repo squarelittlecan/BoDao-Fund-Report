@@ -19,15 +19,51 @@ const clearAllBtn = document.querySelector("#clearAllBtn");
 let mode = "latest";
 
 const products = [
-  { name: "博道成长智航", code: "013641", showYtd: true },
-  { name: "博道星航", code: "026791", showYtd: false },
-  { name: "博道惠泓", code: "025103", showYtd: false },
-  { name: "博道盛享", code: "025874", showYtd: false },
-  { name: "博道久航", code: "008318", showYtd: true },
-  { name: "博道惠泰优选", code: "016840", showYtd: true },
-  { name: "博道远航", code: "007126", showYtd: true },
-  { name: "博道和裕多元稳健30天持有", code: "021323", showYtd: true },
-  { name: "博道消费智航", code: "010998", showYtd: true },
+  { name: "博道中证全指指数增强A", code: "025020", showYtd: true },
+  { name: "博道上证科创板综合指数增强A", code: "023901", showYtd: true },
+  { name: "博道中证A500指数增强A", code: "022745", showYtd: true },
+  { name: "博道沪深300指数量化增强A", code: "022866", showYtd: true },
+  { name: "博道中证800指数增强A", code: "023499", showYtd: true },
+  { name: "博道大盘价值股票A", code: "021915", showYtd: true },
+  { name: "博道大盘成长股票A", code: "022003", showYtd: true },
+  { name: "博道中证500增强A", code: "006593", showYtd: true },
+  { name: "博道中证500增强Y", code: "025038", showYtd: true },
+  { name: "博道沪深300增强A", code: "007044", showYtd: true },
+  { name: "博道沪深300增强Y", code: "025932", showYtd: true },
+  { name: "博道叁佰智航A", code: "007470", showYtd: true },
+  { name: "博道伍佰智航A", code: "007831", showYtd: true },
+  { name: "博道消费智航A", code: "010998", showYtd: true },
+  { name: "博道成长智航股票A", code: "013641", showYtd: true },
+  { name: "博道中证1000指数增强A", code: "017644", showYtd: true },
+  { name: "博道红利智航股票A", code: "019124", showYtd: true },
+  { name: "博道衍晟混合A", code: "026351", showYtd: true, disabled: true },
+  { name: "博道星航混合", code: "026791", showYtd: true },
+  { name: "博道久航混合A", code: "008318", showYtd: true },
+  { name: "博道中证同业存单AAA指数7天持有期", code: "019037", showYtd: true },
+  { name: "博道安远6个月持有期", code: "008547", showYtd: true },
+  { name: "博道盛兴一年持有期混合", code: "013693", showYtd: true },
+  { name: "博道嘉泰回报混合", code: "008208", showYtd: true },
+  { name: "博道启航混合A", code: "006160", showYtd: true },
+  { name: "博道卓远混合A", code: "006511", showYtd: true },
+  { name: "博道睿见一年持有期混合", code: "010755", showYtd: true },
+  { name: "博道远航混合A", code: "007126", showYtd: true },
+  { name: "博道志远混合A", code: "007825", showYtd: true },
+  { name: "博道嘉瑞混合A", code: "008467", showYtd: true },
+  { name: "博道盛利6个月持有期混合", code: "010404", showYtd: true },
+  { name: "博道嘉元混合A", code: "008793", showYtd: true },
+  { name: "博道嘉兴一年持有期混合", code: "010147", showYtd: true },
+  { name: "博道嘉丰混合A", code: "010967", showYtd: true },
+  { name: "博道盛彦混合A", code: "012124", showYtd: true },
+  { name: "博道研究恒选混合A", code: "015104", showYtd: true },
+  { name: "博道和瑞多元稳健6个月持有期混合A", code: "016637", showYtd: true },
+  { name: "博道惠泰优选混合A", code: "016840", showYtd: true },
+  { name: "博道明远混合A", code: "019497", showYtd: true },
+  { name: "博道惠泓价值成长混合", code: "025103", showYtd: true },
+  { name: "博道盛享品质成长混合", code: "025874", showYtd: true },
+  { name: "博道衍和债券A", code: "027004", showYtd: true, disabled: true },
+  { name: "博道和盈利率债A", code: "023356", showYtd: true },
+  { name: "博道和祥多元稳健债券A", code: "017134", showYtd: true },
+  { name: "博道和裕多元稳健30天持有期债券A", code: "021323", showYtd: true },
 ];
 
 function setMode(nextMode) {
@@ -41,12 +77,12 @@ function renderFundPicker() {
   fundList.innerHTML = "";
   for (const product of products) {
     const label = document.createElement("label");
-    label.className = "fundOption";
+    label.className = `fundOption${product.disabled ? " disabled" : ""}`;
     label.innerHTML = `
-      <input type="checkbox" name="fund" value="${product.code}" checked />
+      <input type="checkbox" name="fund" value="${product.code}" ${product.disabled ? "disabled" : "checked"} />
       <span>
         <span class="fundName">${product.name}</span>
-        <span class="fundCode">${product.code}</span>
+        <span class="fundCode">${product.code}${product.disabled ? " · 暂无净值" : ""}</span>
       </span>
     `;
     fundList.appendChild(label);
@@ -55,7 +91,9 @@ function renderFundPicker() {
 
 function setAllFunds(checked) {
   for (const input of fundList.querySelectorAll("input[name='fund']")) {
-    input.checked = checked;
+    if (!input.disabled) {
+      input.checked = checked;
+    }
   }
 }
 
