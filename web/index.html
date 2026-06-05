@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>基金净值播报</title>
-    <link rel="stylesheet" href="styles.css?v=20260605-products45b" />
+    <link rel="stylesheet" href="styles.css?v=20260605-metrics" />
   </head>
   <body>
     <div id="loginOverlay" class="loginOverlay hidden">
@@ -48,6 +48,17 @@
           <div id="fundList" class="fundList"></div>
         </section>
 
+        <section class="fundPicker" aria-label="显示字段">
+          <div class="pickerHeader">
+            <span>显示字段</span>
+            <div class="pickerActions">
+              <button id="selectAllMetricsBtn" type="button">全选</button>
+              <button id="clearAllMetricsBtn" type="button">清空</button>
+            </div>
+          </div>
+          <div id="metricList" class="fundList compact"></div>
+        </section>
+
         <button id="queryBtn" class="primary" type="button">
           查询并生成文案
         </button>
@@ -86,6 +97,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=20260605-products45b"></script>
+    <script src="app.js?v=20260605-metrics"></script>
   </body>
 </html>

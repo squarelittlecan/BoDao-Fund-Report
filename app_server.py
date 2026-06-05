@@ -21,7 +21,12 @@ SESSION_COOKIE = "fund_report_session"
 SESSION_TOKEN = secrets.token_urlsafe(32)
 
 
-def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> dict[str, object]:
+def generate_report(
+    date_arg: str,
+    selected_codes: set[str] | None = None,
+    metrics: list[str] | None = None,
+) -> dict[str, object]:
+    metrics = metrics or fund_report.DEFAULT_METRICS
     products = fund_report.read_products(ROOT / fund_report.DEFAULT_PRODUCTS)
     if selected_codes:
         products = [product for product in products if product.code in selected_codes]
@@ -44,8 +49,12 @@ def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> di
             inception_date = fund_report.query_inception_date(product.code)
             show_ytd = fund_report.should_show_ytd(inception_date, target_date)
             stage_returns = fund_report.query_stage_returns(product.code)
-            if show_ytd and "今年来" not in stage_returns:
+            if "今年来" in metrics and show_ytd and "今年来" not in stage_returns:
                 raise RuntimeError(f"{product.code}: no year-to-date stage return found")
+            formatted_stage_returns = {
+                label: fund_report.format_percent(value)
+                for label, value in stage_returns.items()
+            }
             report_rows.append(
                 {
                     "name": product.name,
@@ -55,10 +64,14 @@ def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> di
                     "accum_nav": f"{record.accum_nav:.4f}",
                     "daily_return": fund_report.format_percent(record.daily_return),
                     "ytd_return": (
-                        fund_report.format_percent(stage_returns["今年来"]) if show_ytd else ""
+                        fund_report.format_percent(stage_returns["今年来"])
+                        if show_ytd and "今年来" in stage_returns
+                        else ""
                     ),
                     "inception_return": fund_report.format_percent(stage_returns["成立来"]),
                     "inception_date": inception_date.isoformat(),
+                    "show_ytd": show_ytd,
+                    "stage_returns": formatted_stage_returns,
                 }
             )
         except Exception as exc:
@@ -67,7 +80,7 @@ def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> di
     if failures:
         raise RuntimeError("\n".join(failures))
 
-    report = fund_report.build_report(report_rows, target_date, "天天基金/东方财富")
+    report = fund_report.build_report(report_rows, target_date, "天天基金/东方财富", metrics)
     return {
         "date": target_date.isoformat(),
         "report": report,
@@ -129,14 +142,20 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(query)
         date_arg = params.get("date", ["latest"])[0].strip() or "latest"
         codes_value = params.get("codes", [""])[0]
+        metrics_value = params.get("metrics", [""])[0]
         selected_codes = {
             code.strip().zfill(6)
             for code in codes_value.split(",")
             if code.strip()
         }
+        metrics = [
+            metric.strip()
+            for metric in metrics_value.split(",")
+            if metric.strip()
+        ] or None
 
         try:
-            payload = {"ok": True, **generate_report(date_arg, selected_codes or None)}
+            payload = {"ok": True, **generate_report(date_arg, selected_codes or None, metrics)}
             self.send_json(HTTPStatus.OK, payload)
         except Exception as exc:
             self.send_json(

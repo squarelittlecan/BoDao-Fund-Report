@@ -15,6 +15,9 @@ const loginError = document.querySelector("#loginError");
 const fundList = document.querySelector("#fundList");
 const selectAllBtn = document.querySelector("#selectAllBtn");
 const clearAllBtn = document.querySelector("#clearAllBtn");
+const metricList = document.querySelector("#metricList");
+const selectAllMetricsBtn = document.querySelector("#selectAllMetricsBtn");
+const clearAllMetricsBtn = document.querySelector("#clearAllMetricsBtn");
 
 let mode = "latest";
 
@@ -66,6 +69,18 @@ const products = [
   { name: "博道和裕多元稳健30天持有期债券A", code: "021323", showYtd: true },
 ];
 
+const metricOptions = [
+  { key: "inception_date", label: "成立日期", type: "field", defaultChecked: true },
+  { key: "今年来", label: "今年以来", type: "stage", defaultChecked: true },
+  { key: "近1周", label: "近一周", type: "stage", defaultChecked: false },
+  { key: "近1月", label: "近一个月", type: "stage", defaultChecked: false },
+  { key: "近3月", label: "近三个月", type: "stage", defaultChecked: false },
+  { key: "近1年", label: "近一年", type: "stage", defaultChecked: false },
+  { key: "近2年", label: "近两年", type: "stage", defaultChecked: false },
+  { key: "近3年", label: "近三年", type: "stage", defaultChecked: false },
+  { key: "近5年", label: "近五年", type: "stage", defaultChecked: false },
+];
+
 function setMode(nextMode) {
   mode = nextMode;
   latestBtn.classList.toggle("active", mode === "latest");
@@ -89,12 +104,35 @@ function renderFundPicker() {
   }
 }
 
-function setAllFunds(checked) {
-  for (const input of fundList.querySelectorAll("input[name='fund']")) {
+function renderMetricPicker() {
+  metricList.innerHTML = "";
+  for (const metric of metricOptions) {
+    const label = document.createElement("label");
+    label.className = "fundOption metricOption";
+    label.innerHTML = `
+      <input type="checkbox" name="metric" value="${metric.key}" ${metric.defaultChecked ? "checked" : ""} />
+      <span>
+        <span class="fundName">${metric.label}</span>
+      </span>
+    `;
+    metricList.appendChild(label);
+  }
+}
+
+function setAllInputs(container, name, checked) {
+  for (const input of container.querySelectorAll(`input[name='${name}']`)) {
     if (!input.disabled) {
       input.checked = checked;
     }
   }
+}
+
+function setAllFunds(checked) {
+  setAllInputs(fundList, "fund", checked);
+}
+
+function setAllMetrics(checked) {
+  setAllInputs(metricList, "metric", checked);
 }
 
 function selectedProducts() {
@@ -102,6 +140,13 @@ function selectedProducts() {
     [...fundList.querySelectorAll("input[name='fund']:checked")].map((input) => input.value),
   );
   return products.filter((product) => selectedCodes.has(product.code));
+}
+
+function selectedMetrics() {
+  const selectedKeys = new Set(
+    [...metricList.querySelectorAll("input[name='metric']:checked")].map((input) => input.value),
+  );
+  return metricOptions.filter((metric) => selectedKeys.has(metric.key));
 }
 
 function setLoading(isLoading) {
@@ -255,11 +300,11 @@ async function queryStageReturns(code) {
   );
   const content = data.content || "";
   const returns = {};
-  for (const label of ["今年来", "成立来"]) {
+  for (const label of ["今年来", "近1周", "近1月", "近3月", "近1年", "近2年", "近3年", "近5年", "成立来"]) {
     const match = content.match(
-      new RegExp(`<li class='title'>${label}</li>\\s*<li[^>]*>([-+]?\\d+(?:\\.\\d+)?)%</li>`),
+      new RegExp(`<li class='title'>${label}</li>\\s*<li[^>]*>([-+]?\\d+(?:\\.\\d+)?|---)%?</li>`),
     );
-    if (match) {
+    if (match && match[1] !== "---") {
       returns[label] = Number(match[1]);
     }
   }
@@ -286,7 +331,7 @@ async function resolveTargetDate(dateArg, selectedFunds) {
   return unique[0];
 }
 
-function buildReport(rows, asOf) {
+function buildReport(rows, asOf, metrics) {
   const [year, month, day] = asOf.split("-");
   const headingDate = `${month}${day}`;
   const disclaimerDate = `${Number(year)}.${Number(month)}.${Number(day)}`;
@@ -295,10 +340,18 @@ function buildReport(rows, asOf) {
   for (const row of rows) {
     lines.push(row.name);
     lines.push(`🔸代码：${row.code}`);
-    lines.push(`📅成立日期：${row.inception_date}`);
+    if (metrics.some((metric) => metric.key === "inception_date")) {
+      lines.push(`📅成立日期：${row.inception_date}`);
+    }
     lines.push(`${dailyIcon(row.daily_return)}单日涨跌: ${row.daily_return}`);
-    if (row.ytd_return) {
-      lines.push(`📈今年以来: ${row.ytd_return}`);
+    for (const metric of metrics.filter((item) => item.type === "stage")) {
+      if (metric.key === "今年来" && !row.show_ytd) {
+        continue;
+      }
+      const value = row.stage_returns[metric.key];
+      if (value) {
+        lines.push(`${dailyIcon(value)}${metric.label}: ${value}`);
+      }
     }
     lines.push(`📈成立以来: ${row.inception_return}`);
     lines.push("");
@@ -310,7 +363,7 @@ function buildReport(rows, asOf) {
   return lines.join("\n");
 }
 
-async function generateStaticReport(dateArg, selectedFunds) {
+async function generateStaticReport(dateArg, selectedFunds, metrics) {
   const targetDate = await resolveTargetDate(dateArg, selectedFunds);
   const today = formatDate(new Date());
   const rows = [];
@@ -328,8 +381,12 @@ async function generateStaticReport(dateArg, selectedFunds) {
       const inceptionDate = await queryInceptionDate(product.code);
       const showYtd = yearOf(inceptionDate) < yearOf(targetDate);
       const stage = await queryStageReturns(product.code);
-      if (showYtd && stage["今年来"] === undefined) {
+      if (metrics.some((metric) => metric.key === "今年来") && showYtd && stage["今年来"] === undefined) {
         throw new Error(`${product.code}: 没有查到今年以来阶段收益。`);
+      }
+      const stageReturns = {};
+      for (const [key, value] of Object.entries(stage)) {
+        stageReturns[key] = formatPercent(value);
       }
       rows.push({
         name: product.name,
@@ -338,9 +395,11 @@ async function generateStaticReport(dateArg, selectedFunds) {
         unit_nav: record.unit_nav.toFixed(4),
         accum_nav: record.accum_nav.toFixed(4),
         daily_return: formatPercent(record.daily_return),
-        ytd_return: showYtd ? formatPercent(stage["今年来"]) : "",
+        ytd_return: showYtd && stage["今年来"] !== undefined ? formatPercent(stage["今年来"]) : "",
         inception_return: formatPercent(stage["成立来"]),
         inception_date: inceptionDate,
+        show_ytd: showYtd,
+        stage_returns: stageReturns,
       });
     } catch (error) {
       failures.push(error.message || String(error));
@@ -353,15 +412,16 @@ async function generateStaticReport(dateArg, selectedFunds) {
 
   return {
     date: targetDate,
-    report: buildReport(rows, targetDate),
+    report: buildReport(rows, targetDate, metrics),
     rows,
   };
 }
 
-async function fetchBackendReport(dateArg, selectedFunds) {
+async function fetchBackendReport(dateArg, selectedFunds, metrics) {
   const params = new URLSearchParams({
     date: dateArg,
     codes: selectedFunds.map((product) => product.code).join(","),
+    metrics: metrics.map((metric) => metric.key).join(","),
   });
   const response = await fetch(`api/report?${params}`);
   const payload = await response.json();
@@ -376,20 +436,21 @@ async function fetchBackendReport(dateArg, selectedFunds) {
   return payload;
 }
 
-async function getReport(dateArg, selectedFunds) {
+async function getReport(dateArg, selectedFunds, metrics) {
   try {
-    return await fetchBackendReport(dateArg, selectedFunds);
+    return await fetchBackendReport(dateArg, selectedFunds, metrics);
   } catch (error) {
     if (error.message === "请先登录。" || error.message.includes("密码")) {
       throw error;
     }
-    return generateStaticReport(dateArg, selectedFunds);
+    return generateStaticReport(dateArg, selectedFunds, metrics);
   }
 }
 
 async function queryReport() {
   const dateArg = mode === "latest" ? "latest" : dateInput.value;
   const funds = selectedProducts();
+  const metrics = selectedMetrics();
   if (!funds.length) {
     statusTitle.textContent = "请选择基金";
     reportOutput.textContent = "请至少选择一只基金。";
@@ -413,7 +474,7 @@ async function queryReport() {
   reportOutput.textContent = "正在联网查询公开基金数据，请稍等。";
 
   try {
-    const payload = await getReport(dateArg, funds);
+    const payload = await getReport(dateArg, funds, metrics);
 
     statusTitle.textContent = `已生成 ${payload.date}`;
     reportOutput.textContent = payload.report;
@@ -476,7 +537,10 @@ copyBtn.addEventListener("click", copyReport);
 loginForm.addEventListener("submit", login);
 selectAllBtn.addEventListener("click", () => setAllFunds(true));
 clearAllBtn.addEventListener("click", () => setAllFunds(false));
+selectAllMetricsBtn.addEventListener("click", () => setAllMetrics(true));
+clearAllMetricsBtn.addEventListener("click", () => setAllMetrics(false));
 
 renderFundPicker();
+renderMetricPicker();
 setMode("latest");
 checkAuth();

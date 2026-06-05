@@ -17,6 +17,17 @@ from urllib.error import URLError
 API_URL = "https://fundf10.eastmoney.com/F10DataApi.aspx"
 DEFAULT_PRODUCTS = "fund_products.csv"
 DEFAULT_OUTPUT_DIR = "output"
+DEFAULT_METRICS = ["inception_date", "今年来"]
+METRIC_LABELS = {
+    "今年来": "今年以来",
+    "近1周": "近一周",
+    "近1月": "近一个月",
+    "近3月": "近三个月",
+    "近1年": "近一年",
+    "近2年": "近两年",
+    "近3年": "近三年",
+    "近5年": "近五年",
+}
 
 
 @dataclass(frozen=True)
@@ -300,12 +311,12 @@ def query_stage_returns(code: str) -> dict[str, float]:
 
     content = html.unescape(match.group(1))
     returns: dict[str, float] = {}
-    for label in ("今年来", "成立来"):
+    for label in ("今年来", "近1周", "近1月", "近3月", "近1年", "近2年", "近3年", "近5年", "成立来"):
         item = re.search(
-            rf"<ul[^>]*>\s*<li class='title'>{label}</li>\s*<li[^>]*>([-+]?\d+(?:\.\d+)?)%</li>",
+            rf"<ul[^>]*>\s*<li class='title'>{label}</li>\s*<li[^>]*>([-+]?\d+(?:\.\d+)?|---)%?</li>",
             content,
         )
-        if item:
+        if item and item.group(1) != "---":
             returns[label] = float(item.group(1))
     return returns
 
@@ -330,18 +341,28 @@ def inception_return(target: NavRecord) -> float:
     return (target.accum_nav - 1) * 100
 
 
-def build_report(rows: list[dict[str, str]], as_of: date, source: str) -> str:
+def build_report(rows: list[dict[str, str]], as_of: date, source: str, metrics: list[str] | None = None) -> str:
+    metrics = metrics or DEFAULT_METRICS
     heading_date = as_of.strftime("%m%d")
     disclaimer_date = f"{as_of.year}.{as_of.month}.{as_of.day}"
     lines = [f"🌟重点产品净值播报【{heading_date}】", ""]
 
     for row in rows:
         lines.extend([row["name"], f"🔸代码：{row['code']}"])
-        if row.get("inception_date"):
+        if "inception_date" in metrics and row.get("inception_date"):
             lines.append(f"📅成立日期：{row['inception_date']}")
         lines.append(f"{daily_icon(row['daily_return'])}单日涨跌: {row['daily_return']}")
-        if row["ytd_return"]:
-            lines.append(f"📈今年以来: {row['ytd_return']}")
+        stage_returns = row.get("stage_returns", {})
+        if isinstance(stage_returns, str):
+            stage_returns = {}
+        for metric in metrics:
+            if metric == "inception_date":
+                continue
+            if metric == "今年来" and not row.get("show_ytd", True):
+                continue
+            value = stage_returns.get(metric) or row.get("ytd_return" if metric == "今年来" else "")
+            if value:
+                lines.append(f"{daily_icon(value)}{METRIC_LABELS.get(metric, metric)}: {value}")
         lines.extend([f"📈成立以来: {row['inception_return']}", ""])
 
     lines.append(
@@ -387,6 +408,10 @@ def main() -> int:
                 show_ytd = should_show_ytd(inception_date_value, target_date)
                 if show_ytd and "今年来" not in stage_returns:
                     raise RuntimeError(f"{product.code}: no year-to-date stage return found")
+                formatted_stage_returns = {
+                    label: format_percent(value)
+                    for label, value in stage_returns.items()
+                }
                 row = {
                     "name": product.name,
                     "code": product.code,
@@ -394,9 +419,11 @@ def main() -> int:
                     "unit_nav": f"{record.unit_nav:.4f}",
                     "accum_nav": f"{record.accum_nav:.4f}",
                     "daily_return": format_percent(record.daily_return),
-                    "ytd_return": format_percent(stage_returns["今年来"]) if show_ytd else "",
+                    "ytd_return": format_percent(stage_returns["今年来"]) if show_ytd and "今年来" in stage_returns else "",
                     "inception_return": format_percent(stage_returns["成立来"]),
                     "inception_date": inception_date_value.isoformat(),
+                    "show_ytd": show_ytd,
+                    "stage_returns": formatted_stage_returns,
                 }
                 report_rows.append(row)
             except Exception as exc:
@@ -413,6 +440,7 @@ def main() -> int:
     with raw_path.open("w", encoding="utf-8-sig", newline="") as file:
         writer = csv.DictWriter(
             file,
+            extrasaction="ignore",
             fieldnames=[
                 "name",
                 "code",
