@@ -99,6 +99,10 @@ function parseDate(value) {
   return new Date(year, month - 1, day);
 }
 
+function yearOf(value) {
+  return parseDate(value).getFullYear();
+}
+
 function formatPercent(value) {
   const number = Number(value);
   return `${number >= 0 ? "+" : ""}${number.toFixed(2)}%`;
@@ -139,6 +143,29 @@ function parseNavRecords(content) {
       accum_nav: Number(cells[2]),
       daily_return: Number(cells[3].replace("%", "").replace("+", "")),
     }));
+}
+
+async function queryInceptionDate(code) {
+  return new Promise((resolve, reject) => {
+    window.Data_netWorthTrend = undefined;
+    const script = document.createElement("script");
+    script.src = `https://fund.eastmoney.com/pingzhongdata/${code}.js?_=${Date.now()}`;
+    script.async = true;
+    script.onload = () => {
+      const trend = window.Data_netWorthTrend;
+      script.remove();
+      if (!Array.isArray(trend) || !trend.length || !trend[0].x) {
+        reject(new Error(`${code}: 没有查到成立日期。`));
+        return;
+      }
+      resolve(formatDate(new Date(Number(trend[0].x))));
+    };
+    script.onerror = () => {
+      script.remove();
+      reject(new Error(`${code}: 成立日期数据加载失败。`));
+    };
+    document.body.appendChild(script);
+  });
 }
 
 async function queryNavRows(code, start, end, per = 200) {
@@ -254,7 +281,12 @@ async function generateStaticReport(dateArg, selectedFunds) {
           `${product.code}: 公开源阶段收益仅支持最新净值日 ${latest.nav_date}，不支持 ${targetDate}`,
         );
       }
+      const inceptionDate = await queryInceptionDate(product.code);
+      const showYtd = yearOf(inceptionDate) < yearOf(targetDate);
       const stage = await queryStageReturns(product.code);
+      if (showYtd && stage["今年来"] === undefined) {
+        throw new Error(`${product.code}: 没有查到今年以来阶段收益。`);
+      }
       rows.push({
         name: product.name,
         code: product.code,
@@ -262,8 +294,9 @@ async function generateStaticReport(dateArg, selectedFunds) {
         unit_nav: record.unit_nav.toFixed(4),
         accum_nav: record.accum_nav.toFixed(4),
         daily_return: formatPercent(record.daily_return),
-        ytd_return: product.showYtd ? formatPercent(stage["今年来"]) : "",
+        ytd_return: showYtd ? formatPercent(stage["今年来"]) : "",
         inception_return: formatPercent(stage["成立来"]),
+        inception_date: inceptionDate,
       });
     } catch (error) {
       failures.push(error.message || String(error));

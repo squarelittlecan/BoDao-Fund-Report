@@ -111,6 +111,10 @@ def normalize_percent(value: str | None) -> str:
     return format_percent(parse_percent(value))
 
 
+def should_show_ytd(inception_date: date, target_date: date) -> bool:
+    return inception_date.year < target_date.year
+
+
 def urlopen_with_retry(request: urllib.request.Request, attempts: int = 3) -> bytes:
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
@@ -302,6 +306,22 @@ def query_stage_returns(code: str) -> dict[str, float]:
     return returns
 
 
+def query_inception_date(code: str) -> date:
+    request = urllib.request.Request(
+        f"https://fund.eastmoney.com/pingzhongdata/{code}.js",
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Referer": f"https://fund.eastmoney.com/{code}.html",
+        },
+    )
+    body = urlopen_with_retry(request).decode("utf-8-sig", errors="ignore")
+    match = re.search(r"Data_netWorthTrend\s*=\s*\[\{\"x\":(\d+),", body)
+    if not match:
+        raise RuntimeError(f"{code}: no inception date found")
+    timestamp_ms = int(match.group(1))
+    return datetime.fromtimestamp(timestamp_ms / 1000).date()
+
+
 def inception_return(target: NavRecord) -> float:
     return (target.accum_nav - 1) * 100
 
@@ -362,6 +382,10 @@ def main() -> int:
                         f"{latest.nav_date.isoformat()}, not {target_date.isoformat()}"
                     )
                 stage_returns = query_stage_returns(product.code)
+                inception_date_value = query_inception_date(product.code)
+                show_ytd = should_show_ytd(inception_date_value, target_date)
+                if show_ytd and "今年来" not in stage_returns:
+                    raise RuntimeError(f"{product.code}: no year-to-date stage return found")
                 row = {
                     "name": product.name,
                     "code": product.code,
@@ -369,8 +393,9 @@ def main() -> int:
                     "unit_nav": f"{record.unit_nav:.4f}",
                     "accum_nav": f"{record.accum_nav:.4f}",
                     "daily_return": format_percent(record.daily_return),
-                    "ytd_return": format_percent(stage_returns["今年来"]) if product.show_ytd else "",
+                    "ytd_return": format_percent(stage_returns["今年来"]) if show_ytd else "",
                     "inception_return": format_percent(stage_returns["成立来"]),
+                    "inception_date": inception_date_value.isoformat(),
                 }
                 report_rows.append(row)
             except Exception as exc:
@@ -396,6 +421,7 @@ def main() -> int:
                 "daily_return",
                 "ytd_return",
                 "inception_return",
+                "inception_date",
             ],
         )
         writer.writeheader()

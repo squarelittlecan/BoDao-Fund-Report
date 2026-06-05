@@ -41,7 +41,11 @@ def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> di
                     f"{product.code}: 公开源阶段收益仅支持最新净值日 "
                     f"{latest.nav_date.isoformat()}，不支持 {target_date.isoformat()}"
                 )
+            inception_date = fund_report.query_inception_date(product.code)
+            show_ytd = fund_report.should_show_ytd(inception_date, target_date)
             stage_returns = fund_report.query_stage_returns(product.code)
+            if show_ytd and "今年来" not in stage_returns:
+                raise RuntimeError(f"{product.code}: no year-to-date stage return found")
             report_rows.append(
                 {
                     "name": product.name,
@@ -51,9 +55,10 @@ def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> di
                     "accum_nav": f"{record.accum_nav:.4f}",
                     "daily_return": fund_report.format_percent(record.daily_return),
                     "ytd_return": (
-                        fund_report.format_percent(stage_returns["今年来"]) if product.show_ytd else ""
+                        fund_report.format_percent(stage_returns["今年来"]) if show_ytd else ""
                     ),
                     "inception_return": fund_report.format_percent(stage_returns["成立来"]),
+                    "inception_date": inception_date.isoformat(),
                 }
             )
         except Exception as exc:
