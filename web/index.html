@@ -37,6 +37,17 @@
           <input id="dateInput" type="date" />
         </label>
 
+        <section class="fundPicker" aria-label="基金选择">
+          <div class="pickerHeader">
+            <span>选择基金</span>
+            <div class="pickerActions">
+              <button id="selectAllBtn" type="button">全选</button>
+              <button id="clearAllBtn" type="button">清空</button>
+            </div>
+          </div>
+          <div id="fundList" class="fundList"></div>
+        </section>
+
         <button id="queryBtn" class="primary" type="button">
           查询并生成文案
         </button>

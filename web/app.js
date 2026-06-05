@@ -12,6 +12,9 @@ const loginOverlay = document.querySelector("#loginOverlay");
 const loginForm = document.querySelector("#loginForm");
 const passwordInput = document.querySelector("#passwordInput");
 const loginError = document.querySelector("#loginError");
+const fundList = document.querySelector("#fundList");
+const selectAllBtn = document.querySelector("#selectAllBtn");
+const clearAllBtn = document.querySelector("#clearAllBtn");
 
 let mode = "latest";
 
@@ -32,6 +35,35 @@ function setMode(nextMode) {
   latestBtn.classList.toggle("active", mode === "latest");
   dateBtn.classList.toggle("active", mode === "date");
   dateField.classList.toggle("hidden", mode !== "date");
+}
+
+function renderFundPicker() {
+  fundList.innerHTML = "";
+  for (const product of products) {
+    const label = document.createElement("label");
+    label.className = "fundOption";
+    label.innerHTML = `
+      <input type="checkbox" name="fund" value="${product.code}" checked />
+      <span>
+        <span class="fundName">${product.name}</span>
+        <span class="fundCode">${product.code}</span>
+      </span>
+    `;
+    fundList.appendChild(label);
+  }
+}
+
+function setAllFunds(checked) {
+  for (const input of fundList.querySelectorAll("input[name='fund']")) {
+    input.checked = checked;
+  }
+}
+
+function selectedProducts() {
+  const selectedCodes = new Set(
+    [...fundList.querySelectorAll("input[name='fund']:checked")].map((input) => input.value),
+  );
+  return products.filter((product) => selectedCodes.has(product.code));
 }
 
 function setLoading(isLoading) {
@@ -167,13 +199,13 @@ async function queryStageReturns(code) {
   return returns;
 }
 
-async function resolveTargetDate(dateArg) {
+async function resolveTargetDate(dateArg, selectedFunds) {
   if (!["latest", "today", "current"].includes(dateArg)) {
     return dateArg;
   }
   const today = formatDate(new Date());
   const dates = [];
-  for (const product of products) {
+  for (const product of selectedFunds) {
     const latest = await latestAvailableRecord(product.code, today);
     dates.push(latest.nav_date);
   }
@@ -207,13 +239,13 @@ function buildReport(rows, asOf) {
   return lines.join("\n");
 }
 
-async function generateStaticReport(dateArg) {
-  const targetDate = await resolveTargetDate(dateArg);
+async function generateStaticReport(dateArg, selectedFunds) {
+  const targetDate = await resolveTargetDate(dateArg, selectedFunds);
   const today = formatDate(new Date());
   const rows = [];
   const failures = [];
 
-  for (const product of products) {
+  for (const product of selectedFunds) {
     try {
       const record = await exactRecordForDate(product.code, targetDate);
       const latest = await latestAvailableRecord(product.code, today);
@@ -249,8 +281,12 @@ async function generateStaticReport(dateArg) {
   };
 }
 
-async function fetchBackendReport(dateArg) {
-  const response = await fetch(`api/report?date=${encodeURIComponent(dateArg)}`);
+async function fetchBackendReport(dateArg, selectedFunds) {
+  const params = new URLSearchParams({
+    date: dateArg,
+    codes: selectedFunds.map((product) => product.code).join(","),
+  });
+  const response = await fetch(`api/report?${params}`);
   const payload = await response.json();
   if (response.status === 401) {
     loginOverlay.classList.remove("hidden");
@@ -263,19 +299,28 @@ async function fetchBackendReport(dateArg) {
   return payload;
 }
 
-async function getReport(dateArg) {
+async function getReport(dateArg, selectedFunds) {
   try {
-    return await fetchBackendReport(dateArg);
+    return await fetchBackendReport(dateArg, selectedFunds);
   } catch (error) {
     if (error.message === "请先登录。" || error.message.includes("密码")) {
       throw error;
     }
-    return generateStaticReport(dateArg);
+    return generateStaticReport(dateArg, selectedFunds);
   }
 }
 
 async function queryReport() {
   const dateArg = mode === "latest" ? "latest" : dateInput.value;
+  const funds = selectedProducts();
+  if (!funds.length) {
+    statusTitle.textContent = "请选择基金";
+    reportOutput.textContent = "请至少选择一只基金。";
+    reportOutput.classList.add("error");
+    dataTableWrap.classList.add("hidden");
+    copyBtn.disabled = true;
+    return;
+  }
   if (mode === "date" && !dateArg) {
     statusTitle.textContent = "请选择日期";
     reportOutput.textContent = "请先选择一个净值日期。";
@@ -291,7 +336,7 @@ async function queryReport() {
   reportOutput.textContent = "正在联网查询公开基金数据，请稍等。";
 
   try {
-    const payload = await getReport(dateArg);
+    const payload = await getReport(dateArg, funds);
 
     statusTitle.textContent = `已生成 ${payload.date}`;
     reportOutput.textContent = payload.report;
@@ -352,6 +397,9 @@ dateBtn.addEventListener("click", () => setMode("date"));
 queryBtn.addEventListener("click", queryReport);
 copyBtn.addEventListener("click", copyReport);
 loginForm.addEventListener("submit", login);
+selectAllBtn.addEventListener("click", () => setAllFunds(true));
+clearAllBtn.addEventListener("click", () => setAllFunds(false));
 
+renderFundPicker();
 setMode("latest");
 checkAuth();

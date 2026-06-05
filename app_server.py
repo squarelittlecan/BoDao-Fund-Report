@@ -21,8 +21,12 @@ SESSION_COOKIE = "fund_report_session"
 SESSION_TOKEN = secrets.token_urlsafe(32)
 
 
-def generate_report(date_arg: str) -> dict[str, object]:
+def generate_report(date_arg: str, selected_codes: set[str] | None = None) -> dict[str, object]:
     products = fund_report.read_products(ROOT / fund_report.DEFAULT_PRODUCTS)
+    if selected_codes:
+        products = [product for product in products if product.code in selected_codes]
+    if not products:
+        raise RuntimeError("请至少选择一只基金。")
     target_date = fund_report.resolve_target_date(date_arg or "latest", products)
 
     report_rows: list[dict[str, str]] = []
@@ -119,9 +123,15 @@ class Handler(BaseHTTPRequestHandler):
     def handle_report(self, query: str) -> None:
         params = parse_qs(query)
         date_arg = params.get("date", ["latest"])[0].strip() or "latest"
+        codes_value = params.get("codes", [""])[0]
+        selected_codes = {
+            code.strip().zfill(6)
+            for code in codes_value.split(",")
+            if code.strip()
+        }
 
         try:
-            payload = {"ok": True, **generate_report(date_arg)}
+            payload = {"ok": True, **generate_report(date_arg, selected_codes or None)}
             self.send_json(HTTPStatus.OK, payload)
         except Exception as exc:
             self.send_json(

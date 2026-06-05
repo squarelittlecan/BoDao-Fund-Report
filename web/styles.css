@@ -108,6 +108,81 @@ h2 {
   display: none;
 }
 
+.fundPicker {
+  display: grid;
+  gap: 10px;
+}
+
+.pickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pickerActions {
+  display: flex;
+  gap: 6px;
+}
+
+.pickerActions button {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--accent-dark);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fundList {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.fundOption {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.fundOption input {
+  width: 16px;
+  min-height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.fundName {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.fundCode {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
 .loginOverlay {
   position: fixed;
   inset: 0;
