@@ -62,7 +62,7 @@ def generate_report(
                     "date": record.nav_date.isoformat(),
                     "unit_nav": f"{record.unit_nav:.4f}",
                     "accum_nav": f"{record.accum_nav:.4f}",
-                    "daily_return": fund_report.format_percent(record.daily_return),
+                    "daily_return": "暂无" if record.daily_return is None else fund_report.format_percent(record.daily_return),
                     "ytd_return": (
                         fund_report.format_percent(stage_returns["今年来"])
                         if show_ytd and "今年来" in stage_returns

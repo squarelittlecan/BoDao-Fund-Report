@@ -41,7 +41,7 @@ const products = [
   { name: "博道成长智航股票A", code: "013641", showYtd: true },
   { name: "博道中证1000指数增强A", code: "017644", showYtd: true },
   { name: "博道红利智航股票A", code: "019124", showYtd: true },
-  { name: "博道衍晟混合A", code: "026351", showYtd: true, disabled: true },
+  { name: "博道衍晟混合A", code: "026351", showYtd: true, defaultSelected: false, note: "周披露 · 日涨跌暂无" },
   { name: "博道星航混合", code: "026791", showYtd: true },
   { name: "博道久航混合A", code: "008318", showYtd: true },
   { name: "博道中证同业存单AAA指数7天持有期", code: "019037", showYtd: true },
@@ -65,7 +65,7 @@ const products = [
   { name: "博道明远混合A", code: "019497", showYtd: true },
   { name: "博道惠泓价值成长混合", code: "025103", showYtd: true },
   { name: "博道盛享品质成长混合", code: "025874", showYtd: true },
-  { name: "博道衍和债券A", code: "027004", showYtd: true, disabled: true },
+  { name: "博道衍和债券A", code: "027004", showYtd: true, defaultSelected: false, note: "周披露 · 日涨跌暂无" },
   { name: "博道和盈利率债A", code: "023356", showYtd: true },
   { name: "博道和祥多元稳健债券A", code: "017134", showYtd: true },
   { name: "博道和裕多元稳健30天持有期债券A", code: "021323", showYtd: true },
@@ -97,10 +97,10 @@ function renderFundPicker() {
     label.className = `fundOption${product.disabled ? " disabled" : ""}`;
     label.dataset.search = `${product.name} ${product.code}`.toLowerCase();
     label.innerHTML = `
-      <input type="checkbox" name="fund" value="${product.code}" ${product.disabled ? "disabled" : "checked"} />
+      <input type="checkbox" name="fund" value="${product.code}" ${product.disabled ? "disabled" : product.defaultSelected === false ? "" : "checked"} />
       <span>
         <span class="fundName">${product.name}</span>
-        <span class="fundCode">${product.code}${product.disabled ? " · 暂无净值" : ""}</span>
+        <span class="fundCode">${product.code}${product.disabled ? " · 暂无净值" : product.note ? ` · ${product.note}` : ""}</span>
       </span>
     `;
     fundList.appendChild(label);
@@ -223,7 +223,11 @@ function formatPercent(value) {
 }
 
 function dailyIcon(value) {
-  return Number(String(value).replace("%", "")) < 0 ? "📉" : "📈";
+  const number = Number(String(value).replace("%", ""));
+  if (Number.isNaN(number)) {
+    return "📊";
+  }
+  return number < 0 ? "📉" : "📈";
 }
 
 function loadEastmoneyScript(url) {
@@ -254,12 +258,12 @@ function parseNavRecords(content) {
   const doc = new DOMParser().parseFromString(content, "text/html");
   return [...doc.querySelectorAll("tbody tr")]
     .map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent.trim()))
-    .filter((cells) => cells.length >= 4 && cells[1] && cells[2] && cells[3] && cells[3] !== "--")
+    .filter((cells) => cells.length >= 4 && cells[1] && cells[2])
     .map((cells) => ({
       nav_date: cells[0],
       unit_nav: Number(cells[1]),
       accum_nav: Number(cells[2]),
-      daily_return: Number(cells[3].replace("%", "").replace("+", "")),
+      daily_return: cells[3] && cells[3] !== "--" ? Number(cells[3].replace("%", "").replace("+", "")) : null,
     }));
 }
 
@@ -424,7 +428,7 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
         date: record.nav_date,
         unit_nav: record.unit_nav.toFixed(4),
         accum_nav: record.accum_nav.toFixed(4),
-        daily_return: formatPercent(record.daily_return),
+        daily_return: record.daily_return === null ? "暂无" : formatPercent(record.daily_return),
         ytd_return: showYtd && stage["今年来"] !== undefined ? formatPercent(stage["今年来"]) : "",
         inception_return: formatPercent(stage["成立来"]),
         inception_date: inceptionDate,

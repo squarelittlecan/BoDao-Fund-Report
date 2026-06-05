@@ -42,7 +42,7 @@ class NavRecord:
     nav_date: date
     unit_nav: float
     accum_nav: float
-    daily_return: float
+    daily_return: float | None
 
 
 class TableParser(HTMLParser):
@@ -114,6 +114,8 @@ def format_percent(value: float) -> str:
 
 
 def daily_icon(value: str) -> str:
+    if value == "暂无":
+        return "📊"
     return "📉" if parse_percent(value) < 0 else "📈"
 
 
@@ -259,14 +261,14 @@ def query_nav_rows(code: str, start: date, end: date, per: int = 200) -> list[Na
 
     records: list[NavRecord] = []
     for cells in parser.rows:
-        if len(cells) < 4 or cells[1] in {"", "--"} or cells[2] in {"", "--"} or cells[3] in {"", "--"}:
+        if len(cells) < 4 or cells[1] in {"", "--"} or cells[2] in {"", "--"}:
             continue
         records.append(
             NavRecord(
                 nav_date=parse_date(cells[0]),
                 unit_nav=float(cells[1]),
                 accum_nav=float(cells[2]),
-                daily_return=parse_percent(cells[3]),
+                daily_return=parse_percent(cells[3]) if cells[3] and cells[3] != "--" else None,
             )
         )
     return records
@@ -418,7 +420,7 @@ def main() -> int:
                     "date": record.nav_date.isoformat(),
                     "unit_nav": f"{record.unit_nav:.4f}",
                     "accum_nav": f"{record.accum_nav:.4f}",
-                    "daily_return": format_percent(record.daily_return),
+                    "daily_return": "暂无" if record.daily_return is None else format_percent(record.daily_return),
                     "ytd_return": format_percent(stage_returns["今年来"]) if show_ytd and "今年来" in stage_returns else "",
                     "inception_return": format_percent(stage_returns["成立来"]),
                     "inception_date": inception_date_value.isoformat(),
