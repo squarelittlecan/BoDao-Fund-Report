@@ -166,7 +166,11 @@ function setLoading(isLoading) {
 
 function tableColumns(metrics) {
   const columns = [
-    { key: "name", label: "产品", value: (row) => row.name },
+    {
+      key: "name",
+      label: "产品",
+      value: (row) => (row.is_stale_date ? `${row.name}（最新净值日：${row.date}）` : row.name),
+    },
     { key: "code", label: "代码", value: (row) => row.code },
   ];
   if (metrics.some((metric) => metric.key === "inception_date")) {
@@ -348,31 +352,40 @@ async function queryStageReturns(code) {
   return returns;
 }
 
-async function resolveTargetDate(dateArg, selectedFunds) {
+async function resolveTargetDates(dateArg, selectedFunds) {
   if (!["latest", "today", "current"].includes(dateArg)) {
-    return dateArg;
+    return {
+      reportDate: dateArg,
+      datesByCode: Object.fromEntries(selectedFunds.map((product) => [product.code, dateArg])),
+      warnings: [],
+    };
   }
   const today = formatDate(new Date());
-  const dates = [];
+  const datesByCode = {};
   for (const product of selectedFunds) {
     const latest = await latestAvailableRecord(product.code, today);
-    dates.push(latest.nav_date);
+    datesByCode[product.code] = latest.nav_date;
   }
-  const unique = [...new Set(dates)];
-  if (unique.length !== 1) {
-    throw new Error(`各基金最新净值日不一致：${dates.join(", ")}`);
-  }
-  return unique[0];
+  const dates = Object.values(datesByCode);
+  const reportDate = dates.slice().sort().at(-1);
+  const warnings = selectedFunds
+    .filter((product) => datesByCode[product.code] !== reportDate)
+    .map((product) => ({
+      code: product.code,
+      name: product.name,
+      date: datesByCode[product.code],
+    }));
+  return { reportDate, datesByCode, warnings };
 }
 
-function buildReport(rows, asOf, metrics) {
+function buildReport(rows, asOf, metrics, hasMixedDates = false) {
   const [year, month, day] = asOf.split("-");
   const headingDate = `${month}${day}`;
-  const disclaimerDate = `${Number(year)}.${Number(month)}.${Number(day)}`;
+  const disclaimerDate = hasMixedDates ? "各产品最新净值日" : `${Number(year)}.${Number(month)}.${Number(day)}`;
   const lines = [`🌟重点产品净值播报【${headingDate}】`, ""];
 
   for (const row of rows) {
-    lines.push(row.name);
+    lines.push(row.is_stale_date ? `${row.name}（最新净值日：${row.date}）` : row.name);
     lines.push(`🔸代码：${row.code}`);
     if (metrics.some((metric) => metric.key === "inception_date")) {
       lines.push(`📅成立日期：${row.inception_date}`);
@@ -398,20 +411,14 @@ function buildReport(rows, asOf, metrics) {
 }
 
 async function generateStaticReport(dateArg, selectedFunds, metrics) {
-  const targetDate = await resolveTargetDate(dateArg, selectedFunds);
-  const today = formatDate(new Date());
+  const { reportDate, datesByCode, warnings } = await resolveTargetDates(dateArg, selectedFunds);
   const rows = [];
   const failures = [];
 
   for (const product of selectedFunds) {
     try {
+      const targetDate = datesByCode[product.code];
       const record = await exactRecordForDate(product.code, targetDate);
-      const latest = await latestAvailableRecord(product.code, today);
-      if (latest.nav_date !== targetDate) {
-        throw new Error(
-          `${product.code}: 公开源阶段收益仅支持最新净值日 ${latest.nav_date}，不支持 ${targetDate}`,
-        );
-      }
       const inceptionDate = await queryInceptionDate(product.code);
       const showYtd = yearOf(inceptionDate) < yearOf(targetDate);
       const stage = await queryStageReturns(product.code);
@@ -434,6 +441,7 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
         inception_date: inceptionDate,
         show_ytd: showYtd,
         stage_returns: stageReturns,
+        is_stale_date: targetDate !== reportDate,
       });
     } catch (error) {
       failures.push(error.message || String(error));
@@ -445,8 +453,9 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
   }
 
   return {
-    date: targetDate,
-    report: buildReport(rows, targetDate, metrics),
+    date: reportDate,
+    warnings,
+    report: buildReport(rows, reportDate, metrics, warnings.length > 0),
     rows,
   };
 }
@@ -514,6 +523,12 @@ async function queryReport() {
     reportOutput.textContent = payload.report;
     copyBtn.disabled = false;
     renderRows(payload.rows, metrics);
+    if (payload.warnings?.length) {
+      alert(
+        `请注意，以下基金最新净值日不是 ${payload.date}：\n` +
+          payload.warnings.map((item) => `${item.name} 最新净值日是【${item.date}】`).join("\n"),
+      );
+    }
   } catch (error) {
     statusTitle.textContent = "未生成";
     reportOutput.classList.add("error");

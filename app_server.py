@@ -32,22 +32,36 @@ def generate_report(
         products = [product for product in products if product.code in selected_codes]
     if not products:
         raise RuntimeError("请至少选择一只基金。")
-    target_date = fund_report.resolve_target_date(date_arg or "latest", products)
+
+    if (date_arg or "latest").lower() in {"latest", "today", "current"}:
+        latest_by_code = {
+            product.code: fund_report.latest_available_record(product.code, date.today()).nav_date
+            for product in products
+        }
+        target_date = max(latest_by_code.values())
+        warnings = [
+            {
+                "code": product.code,
+                "name": product.name,
+                "date": latest_by_code[product.code].isoformat(),
+            }
+            for product in products
+            if latest_by_code[product.code] != target_date
+        ]
+    else:
+        target_date = fund_report.parse_date(date_arg)
+        latest_by_code = {product.code: target_date for product in products}
+        warnings = []
 
     report_rows: list[dict[str, str]] = []
     failures: list[str] = []
 
     for product in products:
         try:
-            record = fund_report.exact_record_for_date(product.code, target_date)
-            latest = fund_report.latest_available_record(product.code, date.today())
-            if latest.nav_date != target_date:
-                raise RuntimeError(
-                    f"{product.code}: 公开源阶段收益仅支持最新净值日 "
-                    f"{latest.nav_date.isoformat()}，不支持 {target_date.isoformat()}"
-                )
+            product_date = latest_by_code[product.code]
+            record = fund_report.exact_record_for_date(product.code, product_date)
             inception_date = fund_report.query_inception_date(product.code)
-            show_ytd = fund_report.should_show_ytd(inception_date, target_date)
+            show_ytd = fund_report.should_show_ytd(inception_date, product_date)
             stage_returns = fund_report.query_stage_returns(product.code)
             if "今年来" in metrics and show_ytd and "今年来" not in stage_returns:
                 raise RuntimeError(f"{product.code}: no year-to-date stage return found")
@@ -72,6 +86,7 @@ def generate_report(
                     "inception_date": inception_date.isoformat(),
                     "show_ytd": show_ytd,
                     "stage_returns": formatted_stage_returns,
+                    "is_stale_date": product_date != target_date,
                 }
             )
         except Exception as exc:
@@ -83,6 +98,7 @@ def generate_report(
     report = fund_report.build_report(report_rows, target_date, "天天基金/东方财富", metrics)
     return {
         "date": target_date.isoformat(),
+        "warnings": warnings,
         "report": report,
         "rows": report_rows,
     }

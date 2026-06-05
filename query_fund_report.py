@@ -346,11 +346,15 @@ def inception_return(target: NavRecord) -> float:
 def build_report(rows: list[dict[str, str]], as_of: date, source: str, metrics: list[str] | None = None) -> str:
     metrics = metrics or DEFAULT_METRICS
     heading_date = as_of.strftime("%m%d")
-    disclaimer_date = f"{as_of.year}.{as_of.month}.{as_of.day}"
+    has_mixed_dates = any(row.get("is_stale_date") for row in rows)
+    disclaimer_date = "各产品最新净值日" if has_mixed_dates else f"{as_of.year}.{as_of.month}.{as_of.day}"
     lines = [f"🌟重点产品净值播报【{heading_date}】", ""]
 
     for row in rows:
-        lines.extend([row["name"], f"🔸代码：{row['code']}"])
+        name = row["name"]
+        if row.get("is_stale_date"):
+            name = f"{name}（最新净值日：{row['date']}）"
+        lines.extend([name, f"🔸代码：{row['code']}"])
         if "inception_date" in metrics and row.get("inception_date"):
             lines.append(f"📅成立日期：{row['inception_date']}")
         lines.append(f"{daily_icon(row['daily_return'])}单日涨跌: {row['daily_return']}")
