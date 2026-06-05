@@ -103,6 +103,12 @@ h2 {
   font-size: 14px;
 }
 
+.field small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .field.hidden,
 .hidden {
   display: none;
