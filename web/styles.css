@@ -360,3 +360,109 @@ th {
     min-height: 520px;
   }
 }
+
+@media (max-width: 640px) {
+  body {
+    background: #fff;
+  }
+
+  .app {
+    width: 100%;
+    padding: 0;
+    gap: 0;
+  }
+
+  .panel {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+
+  .controls {
+    padding: 18px 16px 20px;
+    gap: 14px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  h2 {
+    font-size: 19px;
+  }
+
+  .modeButton,
+  .primary,
+  .ghost,
+  input {
+    min-height: 42px;
+  }
+
+  .fundList {
+    max-height: 240px;
+  }
+
+  .fundList.compact {
+    max-height: 180px;
+  }
+
+  .fundOption {
+    min-height: 40px;
+    padding: 8px;
+  }
+
+  .fundName {
+    font-size: 13px;
+  }
+
+  .result {
+    min-height: 0;
+    border-top: 8px solid var(--bg);
+  }
+
+  .resultHeader {
+    min-height: 72px;
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  .reportText {
+    min-height: 320px;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.68;
+  }
+
+  table {
+    min-width: 680px;
+    font-size: 13px;
+  }
+
+  th,
+  td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .controls {
+    padding: 16px 12px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  .pickerHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pickerActions {
+    width: 100%;
+  }
+
+  .pickerActions button {
+    flex: 1;
+  }
+}
