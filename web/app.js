@@ -109,6 +109,10 @@ function formatPercent(value) {
   return `${number >= 0 ? "+" : ""}${number.toFixed(2)}%`;
 }
 
+function dailyIcon(value) {
+  return Number(String(value).replace("%", "")) < 0 ? "📉" : "📈";
+}
+
 function loadEastmoneyScript(url) {
   return new Promise((resolve, reject) => {
     window.apidata = undefined;
@@ -254,7 +258,7 @@ function buildReport(rows, asOf) {
     lines.push(row.name);
     lines.push(`🔸代码：${row.code}`);
     lines.push(`📅成立日期：${row.inception_date}`);
-    lines.push(`📈单日涨跌: ${row.daily_return}`);
+    lines.push(`${dailyIcon(row.daily_return)}单日涨跌: ${row.daily_return}`);
     if (row.ytd_return) {
       lines.push(`📈今年以来: ${row.ytd_return}`);
     }

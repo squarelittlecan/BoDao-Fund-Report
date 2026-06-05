@@ -102,6 +102,10 @@ def format_percent(value: float) -> str:
     return f"{value:+.2f}%"
 
 
+def daily_icon(value: str) -> str:
+    return "📉" if parse_percent(value) < 0 else "📈"
+
+
 def normalize_percent(value: str | None) -> str:
     value = (value or "").strip()
     if not value:
@@ -335,7 +339,7 @@ def build_report(rows: list[dict[str, str]], as_of: date, source: str) -> str:
         lines.extend([row["name"], f"🔸代码：{row['code']}"])
         if row.get("inception_date"):
             lines.append(f"📅成立日期：{row['inception_date']}")
-        lines.append(f"📈单日涨跌: {row['daily_return']}")
+        lines.append(f"{daily_icon(row['daily_return'])}单日涨跌: {row['daily_return']}")
         if row["ytd_return"]:
             lines.append(f"📈今年以来: {row['ytd_return']}")
         lines.extend([f"📈成立以来: {row['inception_return']}", ""])
