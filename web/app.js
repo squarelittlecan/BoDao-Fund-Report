@@ -78,6 +78,7 @@ function renderRows(rows) {
     tr.innerHTML = `
       <td>${row.name}</td>
       <td>${row.code}</td>
+      <td>${row.inception_date || "-"}</td>
       <td>${row.daily_return}</td>
       <td>${row.ytd_return || "-"}</td>
       <td>${row.inception_return}</td>
@@ -252,6 +253,7 @@ function buildReport(rows, asOf) {
   for (const row of rows) {
     lines.push(row.name);
     lines.push(`🔸代码：${row.code}`);
+    lines.push(`📅成立日期：${row.inception_date}`);
     lines.push(`📈单日涨跌: ${row.daily_return}`);
     if (row.ytd_return) {
       lines.push(`📈今年以来: ${row.ytd_return}`);

@@ -332,13 +332,10 @@ def build_report(rows: list[dict[str, str]], as_of: date, source: str) -> str:
     lines = [f"🌟重点产品净值播报【{heading_date}】", ""]
 
     for row in rows:
-        lines.extend(
-            [
-                row["name"],
-                f"🔸代码：{row['code']}",
-                f"📈单日涨跌: {row['daily_return']}",
-            ]
-        )
+        lines.extend([row["name"], f"🔸代码：{row['code']}"])
+        if row.get("inception_date"):
+            lines.append(f"📅成立日期：{row['inception_date']}")
+        lines.append(f"📈单日涨跌: {row['daily_return']}")
         if row["ytd_return"]:
             lines.append(f"📈今年以来: {row['ytd_return']}")
         lines.extend([f"📈成立以来: {row['inception_return']}", ""])
