@@ -139,6 +139,13 @@ h2 {
   font-weight: 700;
 }
 
+.pickerNote {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .fundList {
   display: grid;
   gap: 8px;
