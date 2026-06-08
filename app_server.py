@@ -74,6 +74,8 @@ def generate_report(
                     "name": product.name,
                     "code": product.code,
                     "date": record.nav_date.isoformat(),
+                    "data_source": "天天基金/东方财富",
+                    "updated_at": record.nav_date.isoformat(),
                     "unit_nav": f"{record.unit_nav:.4f}",
                     "accum_nav": f"{record.accum_nav:.4f}",
                     "daily_return": "暂无" if record.daily_return is None else fund_report.format_percent(record.daily_return),

@@ -24,6 +24,14 @@ const dataHead = document.querySelector("#dataHead");
 let mode = "latest";
 
 const products = [
+  { name: "博道成长智航", code: "013641", showYtd: true },
+  { name: "博道星航", code: "026791", showYtd: true },
+  { name: "博道惠泓", code: "025103", showYtd: true },
+  { name: "博道盛享", code: "025874", showYtd: true },
+  { name: "博道久航", code: "008318", showYtd: true },
+  { name: "博道惠泰优选", code: "016840", showYtd: true },
+  { name: "博道远航", code: "007126", showYtd: true },
+  { name: "博道和裕多元稳健30天持有", code: "021323", showYtd: true },
   { name: "博道中证全指指数增强", code: "025020", showYtd: true },
   { name: "博道上证科创板综合指数增强", code: "023901", showYtd: true },
   { name: "博道中证A500指数增强", code: "022745", showYtd: true },
@@ -38,12 +46,9 @@ const products = [
   { name: "博道叁佰智航", code: "007470", showYtd: true },
   { name: "博道伍佰智航", code: "007831", showYtd: true },
   { name: "博道消费智航", code: "010998", showYtd: true },
-  { name: "博道成长智航股票", code: "013641", showYtd: true },
   { name: "博道中证1000指数增强", code: "017644", showYtd: true },
   { name: "博道红利智航股票", code: "019124", showYtd: true },
   { name: "博道衍晟混合", code: "026351", showYtd: true, defaultSelected: false, note: "周披露 · 日涨跌暂无" },
-  { name: "博道星航混合", code: "026791", showYtd: true },
-  { name: "博道久航混合", code: "008318", showYtd: true },
   { name: "博道中证同业存单AAA指数7天持有期", code: "019037", showYtd: true },
   { name: "博道安远6个月持有期", code: "008547", showYtd: true },
   { name: "博道盛兴一年持有期混合", code: "013693", showYtd: true },
@@ -51,7 +56,6 @@ const products = [
   { name: "博道启航混合", code: "006160", showYtd: true },
   { name: "博道卓远混合", code: "006511", showYtd: true },
   { name: "博道睿见一年持有期混合", code: "010755", showYtd: true },
-  { name: "博道远航混合", code: "007126", showYtd: true },
   { name: "博道志远混合", code: "007825", showYtd: true },
   { name: "博道嘉瑞混合", code: "008467", showYtd: true },
   { name: "博道盛利6个月持有期混合", code: "010404", showYtd: true },
@@ -61,14 +65,10 @@ const products = [
   { name: "博道盛彦混合", code: "012124", showYtd: true },
   { name: "博道研究恒选混合", code: "015104", showYtd: true },
   { name: "博道和瑞多元稳健6个月持有期混合", code: "016637", showYtd: true },
-  { name: "博道惠泰优选混合", code: "016840", showYtd: true },
   { name: "博道明远混合", code: "019497", showYtd: true },
-  { name: "博道惠泓价值成长混合", code: "025103", showYtd: true },
-  { name: "博道盛享品质成长混合", code: "025874", showYtd: true },
   { name: "博道衍和债券", code: "027004", showYtd: true, defaultSelected: false, note: "周披露 · 日涨跌暂无" },
   { name: "博道和盈利率债", code: "023356", showYtd: true },
   { name: "博道和祥多元稳健债券", code: "017134", showYtd: true },
-  { name: "博道和裕多元稳健30天持有期债券", code: "021323", showYtd: true },
 ];
 
 const metricOptions = [
@@ -172,6 +172,8 @@ function tableColumns(metrics) {
       value: (row) => (row.is_stale_date ? `${row.name}（最新净值日：${row.date}）` : row.name),
     },
     { key: "code", label: "代码", value: (row) => row.code },
+    { key: "data_source", label: "数据来源", value: (row) => row.data_source || "天天基金/东方财富" },
+    { key: "updated_at", label: "更新时间", value: (row) => row.updated_at || row.date || "-" },
   ];
   if (metrics.some((metric) => metric.key === "inception_date")) {
     columns.push({ key: "inception_date", label: "成立日期", value: (row) => row.inception_date || "-" });
@@ -433,6 +435,8 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
         name: product.name,
         code: product.code,
         date: record.nav_date,
+        data_source: "天天基金/东方财富",
+        updated_at: record.nav_date,
         unit_nav: record.unit_nav.toFixed(4),
         accum_nav: record.accum_nav.toFixed(4),
         daily_return: record.daily_return === null ? "暂无" : formatPercent(record.daily_return),
