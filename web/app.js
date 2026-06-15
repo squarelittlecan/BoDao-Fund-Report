@@ -380,22 +380,53 @@ async function resolveTargetDates(dateArg, selectedFunds) {
   if (!["latest", "today", "current"].includes(dateArg)) {
     const datesByCode = {};
     const adjusted = [];
+    const skipped = [];
     for (const product of selectedFunds) {
-      const record = await recordOnOrBefore(product.code, dateArg);
-      datesByCode[product.code] = record.nav_date;
-      if (record.nav_date !== dateArg) {
+      try {
+        const record = await recordOnOrBefore(product.code, dateArg);
+        datesByCode[product.code] = record.nav_date;
+        if (record.nav_date !== dateArg) {
+          adjusted.push({
+            code: product.code,
+            name: product.name,
+            date: record.nav_date,
+            requestedDate: dateArg,
+            reason: "adjusted",
+          });
+        }
+      } catch (error) {
+        let inceptionDate = "";
+        try {
+          inceptionDate = await queryInceptionDate(product.code);
+        } catch {
+          inceptionDate = "";
+        }
+        const reason = inceptionDate && dateArg < inceptionDate ? "before_inception" : "no_history";
         adjusted.push({
           code: product.code,
           name: product.name,
-          date: record.nav_date,
+          date: inceptionDate,
           requestedDate: dateArg,
-          reason: "adjusted",
+          reason,
+          message: error.message || String(error),
         });
+        skipped.push(product.code);
       }
     }
     const reportDate = Object.values(datesByCode).slice().sort().at(-1);
+    if (!reportDate) {
+      throw new Error(
+        adjusted
+          .map((item) =>
+            item.reason === "before_inception"
+              ? `${item.name}：查询日期 ${item.requestedDate} 早于成立日期 ${item.date}，没有历史净值。`
+              : `${item.name}：没有查到 ${item.requestedDate} 或之前的历史净值。`,
+          )
+          .join("\n"),
+      );
+    }
     const stale = selectedFunds
-      .filter((product) => datesByCode[product.code] !== reportDate)
+      .filter((product) => datesByCode[product.code] && datesByCode[product.code] !== reportDate)
       .map((product) => ({
         code: product.code,
         name: product.name,
@@ -407,6 +438,7 @@ async function resolveTargetDates(dateArg, selectedFunds) {
       reportDate,
       datesByCode,
       warnings: [...adjusted, ...stale],
+      skipped,
     };
   }
   const today = formatDate(new Date());
@@ -425,7 +457,7 @@ async function resolveTargetDates(dateArg, selectedFunds) {
       date: datesByCode[product.code],
       reason: "stale",
     }));
-  return { reportDate, datesByCode, warnings };
+  return { reportDate, datesByCode, warnings, skipped: [] };
 }
 
 function stageMetrics(metrics) {
@@ -515,12 +547,16 @@ function buildReport(rows, asOf, metrics, hasMixedDates = false) {
 async function generateStaticReport(dateArg, selectedFunds, metrics, options = {}) {
   const allowNavCalculation = Boolean(options.allowNavCalculation);
   const isLatestMode = ["latest", "today", "current"].includes(dateArg);
-  const { reportDate, datesByCode, warnings } = await resolveTargetDates(dateArg, selectedFunds);
+  const { reportDate, datesByCode, warnings, skipped = [] } = await resolveTargetDates(dateArg, selectedFunds);
+  const skippedCodes = new Set(skipped);
   const rows = [];
   const failures = [];
   const calculationNeeded = [];
 
   for (const product of selectedFunds) {
+    if (skippedCodes.has(product.code)) {
+      continue;
+    }
     try {
       const targetDate = datesByCode[product.code];
       const record = await exactRecordForDate(product.code, targetDate);
@@ -645,13 +681,17 @@ function warningMessage(payload) {
   const seen = new Set();
   const lines = [];
   for (const item of payload.warnings) {
-    const key = `${item.code}-${item.reason}-${item.date}`;
+    const key = `${item.code}-${item.reason}-${item.date || ""}`;
     if (seen.has(key)) {
       continue;
     }
     seen.add(key);
     if (item.reason === "adjusted") {
       lines.push(`${item.name}：${item.requestedDate} 无净值，已自动取之前最近净值日【${item.date}】`);
+    } else if (item.reason === "before_inception") {
+      lines.push(`${item.name}：查询日期 ${item.requestedDate} 早于成立日期【${item.date}】，已跳过该基金`);
+    } else if (item.reason === "no_history") {
+      lines.push(`${item.name}：没有查到 ${item.requestedDate} 或之前的历史净值，已跳过该基金`);
     } else {
       lines.push(`${item.name} 最新净值日是【${item.date}】`);
     }
