@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>基金净值播报</title>
-    <link rel="stylesheet" href="styles.css?v=20260608-default-eight" />
+    <link rel="stylesheet" href="styles.css?v=20260615-date-query" />
   </head>
   <body>
     <div id="loginOverlay" class="loginOverlay hidden">
@@ -35,7 +35,7 @@
         <label class="field" id="dateField">
           <span>净值日期</span>
           <input id="dateInput" type="date" />
-          <small>开发中</small>
+          <small>非交易日会自动取该日期之前最近一个净值日。</small>
         </label>
 
         <section class="fundPicker" aria-label="基金选择">
@@ -67,7 +67,7 @@
         </button>
 
         <p class="hint">
-          默认使用天天基金/东方财富公开数据。若阶段收益无法匹配输入日期，工具会拒绝生成。
+          默认使用天天基金/东方财富公开数据。指定日期会先按严格口径显示；若历史阶段收益缺失，可确认后按累计净值计算。
         </p>
       </section>
 
@@ -93,6 +93,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=20260608-default-eight"></script>
+    <script src="app.js?v=20260615-date-query"></script>
   </body>
 </html>

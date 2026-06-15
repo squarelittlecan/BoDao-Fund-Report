@@ -219,6 +219,24 @@ function parseDate(value) {
   return new Date(year, month - 1, day);
 }
 
+function addDays(value, days) {
+  const date = parseDate(value);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+}
+
+function addMonths(value, months) {
+  const date = parseDate(value);
+  date.setMonth(date.getMonth() + months);
+  return formatDate(date);
+}
+
+function addYears(value, years) {
+  const date = parseDate(value);
+  date.setFullYear(date.getFullYear() + years);
+  return formatDate(date);
+}
+
 function yearOf(value) {
   return parseDate(value).getFullYear();
 }
@@ -319,6 +337,10 @@ async function latestRecordOnOrBefore(code, target, start) {
   return valid[valid.length - 1];
 }
 
+async function recordOnOrBefore(code, target, lookbackDays = 120) {
+  return latestRecordOnOrBefore(code, target, addDays(target, -lookbackDays));
+}
+
 async function latestAvailableRecord(code, target) {
   const year = parseDate(target).getFullYear();
   return latestRecordOnOrBefore(code, target, `${year - 1}-12-01`);
@@ -356,10 +378,35 @@ async function queryStageReturns(code) {
 
 async function resolveTargetDates(dateArg, selectedFunds) {
   if (!["latest", "today", "current"].includes(dateArg)) {
+    const datesByCode = {};
+    const adjusted = [];
+    for (const product of selectedFunds) {
+      const record = await recordOnOrBefore(product.code, dateArg);
+      datesByCode[product.code] = record.nav_date;
+      if (record.nav_date !== dateArg) {
+        adjusted.push({
+          code: product.code,
+          name: product.name,
+          date: record.nav_date,
+          requestedDate: dateArg,
+          reason: "adjusted",
+        });
+      }
+    }
+    const reportDate = Object.values(datesByCode).slice().sort().at(-1);
+    const stale = selectedFunds
+      .filter((product) => datesByCode[product.code] !== reportDate)
+      .map((product) => ({
+        code: product.code,
+        name: product.name,
+        date: datesByCode[product.code],
+        requestedDate: dateArg,
+        reason: "stale",
+      }));
     return {
-      reportDate: dateArg,
-      datesByCode: Object.fromEntries(selectedFunds.map((product) => [product.code, dateArg])),
-      warnings: [],
+      reportDate,
+      datesByCode,
+      warnings: [...adjusted, ...stale],
     };
   }
   const today = formatDate(new Date());
@@ -376,8 +423,61 @@ async function resolveTargetDates(dateArg, selectedFunds) {
       code: product.code,
       name: product.name,
       date: datesByCode[product.code],
+      reason: "stale",
     }));
   return { reportDate, datesByCode, warnings };
+}
+
+function stageMetrics(metrics) {
+  return metrics.filter((metric) => metric.type === "stage");
+}
+
+function targetDateForMetric(targetDate, key) {
+  if (key === "今年来") {
+    return `${yearOf(targetDate) - 1}-12-31`;
+  }
+  const offsets = {
+    近1周: addDays(targetDate, -7),
+    近1月: addMonths(targetDate, -1),
+    近3月: addMonths(targetDate, -3),
+    近1年: addYears(targetDate, -1),
+    近2年: addYears(targetDate, -2),
+    近3年: addYears(targetDate, -3),
+    近5年: addYears(targetDate, -5),
+  };
+  return offsets[key];
+}
+
+async function calculateStageReturnFromNav(code, targetRecord, key) {
+  if (key === "成立来") {
+    return (targetRecord.accum_nav - 1) * 100;
+  }
+  const anchor = targetDateForMetric(targetRecord.nav_date, key);
+  if (!anchor) {
+    return undefined;
+  }
+  const lookbackDays = key === "近5年" ? 2300 : key === "近3年" ? 1400 : key === "近2年" ? 1000 : 420;
+  let baseline;
+  try {
+    baseline = await recordOnOrBefore(code, anchor, lookbackDays);
+  } catch {
+    return undefined;
+  }
+  if (!baseline?.accum_nav || baseline.nav_date >= targetRecord.nav_date) {
+    return undefined;
+  }
+  return (targetRecord.accum_nav / baseline.accum_nav - 1) * 100;
+}
+
+async function calculateStageReturnsFromNav(code, targetRecord, keys) {
+  const returns = {};
+  for (const key of keys) {
+    const value = await calculateStageReturnFromNav(code, targetRecord, key);
+    if (value !== undefined && Number.isFinite(value)) {
+      returns[key] = value;
+    }
+  }
+  return returns;
 }
 
 function buildReport(rows, asOf, metrics, hasMixedDates = false) {
@@ -393,12 +493,12 @@ function buildReport(rows, asOf, metrics, hasMixedDates = false) {
       lines.push(`📅成立日期：${row.inception_date}`);
     }
     lines.push(`${dailyIcon(row.daily_return)}单日涨跌: ${row.daily_return}`);
-    for (const metric of metrics.filter((item) => item.type === "stage")) {
+    for (const metric of stageMetrics(metrics)) {
       if (metric.key === "今年来" && !row.show_ytd) {
         continue;
       }
       const value = row.stage_returns[metric.key];
-      if (value) {
+      if (value !== undefined && value !== "") {
         lines.push(`${dailyIcon(value)}${metric.label}: ${value}`);
       }
     }
@@ -412,10 +512,13 @@ function buildReport(rows, asOf, metrics, hasMixedDates = false) {
   return lines.join("\n");
 }
 
-async function generateStaticReport(dateArg, selectedFunds, metrics) {
+async function generateStaticReport(dateArg, selectedFunds, metrics, options = {}) {
+  const allowNavCalculation = Boolean(options.allowNavCalculation);
+  const isLatestMode = ["latest", "today", "current"].includes(dateArg);
   const { reportDate, datesByCode, warnings } = await resolveTargetDates(dateArg, selectedFunds);
   const rows = [];
   const failures = [];
+  const calculationNeeded = [];
 
   for (const product of selectedFunds) {
     try {
@@ -423,9 +526,28 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
       const record = await exactRecordForDate(product.code, targetDate);
       const inceptionDate = await queryInceptionDate(product.code);
       const showYtd = yearOf(inceptionDate) < yearOf(targetDate);
-      const stage = await queryStageReturns(product.code);
-      if (metrics.some((metric) => metric.key === "今年来") && showYtd && stage["今年来"] === undefined) {
-        throw new Error(`${product.code}: 没有查到今年以来阶段收益。`);
+      const requiredKeys = ["成立来", ...stageMetrics(metrics).map((metric) => metric.key)];
+      let stage = {};
+      if (isLatestMode) {
+        stage = await queryStageReturns(product.code);
+        if (metrics.some((metric) => metric.key === "今年来") && showYtd && stage["今年来"] === undefined) {
+          throw new Error(`${product.code}: 没有查到今年以来阶段收益。`);
+        }
+      } else if (allowNavCalculation) {
+        stage = await calculateStageReturnsFromNav(product.code, record, requiredKeys);
+      }
+      const missingKeys = requiredKeys.filter((key) => {
+        if (key === "今年来" && !showYtd) {
+          return false;
+        }
+        return stage[key] === undefined;
+      });
+      if (!isLatestMode && missingKeys.length) {
+        calculationNeeded.push({
+          name: product.name,
+          code: product.code,
+          keys: missingKeys,
+        });
       }
       const stageReturns = {};
       for (const [key, value] of Object.entries(stage)) {
@@ -441,7 +563,7 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
         accum_nav: record.accum_nav.toFixed(4),
         daily_return: record.daily_return === null ? "暂无" : formatPercent(record.daily_return),
         ytd_return: showYtd && stage["今年来"] !== undefined ? formatPercent(stage["今年来"]) : "",
-        inception_return: formatPercent(stage["成立来"]),
+        inception_return: stage["成立来"] === undefined ? "暂无" : formatPercent(stage["成立来"]),
         inception_date: inceptionDate,
         show_ytd: showYtd,
         stage_returns: stageReturns,
@@ -459,7 +581,9 @@ async function generateStaticReport(dateArg, selectedFunds, metrics) {
   return {
     date: reportDate,
     warnings,
-    report: buildReport(rows, reportDate, metrics, warnings.length > 0),
+    needsCalculation: !isLatestMode && !allowNavCalculation && calculationNeeded.length > 0,
+    calculationNeeded,
+    report: buildReport(rows, reportDate, metrics, new Set(rows.map((row) => row.date)).size > 1),
     rows,
   };
 }
@@ -484,14 +608,55 @@ async function fetchBackendReport(dateArg, selectedFunds, metrics) {
 }
 
 async function getReport(dateArg, selectedFunds, metrics) {
+  return getReportWithOptions(dateArg, selectedFunds, metrics);
+}
+
+async function getReportWithOptions(dateArg, selectedFunds, metrics, options = {}) {
+  if (!["latest", "today", "current"].includes(dateArg)) {
+    return generateStaticReport(dateArg, selectedFunds, metrics, options);
+  }
   try {
     return await fetchBackendReport(dateArg, selectedFunds, metrics);
   } catch (error) {
     if (error.message === "请先登录。" || error.message.includes("密码")) {
       throw error;
     }
-    return generateStaticReport(dateArg, selectedFunds, metrics);
+    return generateStaticReport(dateArg, selectedFunds, metrics, options);
   }
+}
+
+function calculationConfirmMessage(payload) {
+  const lines = payload.calculationNeeded
+    .slice(0, 12)
+    .map((item) => `${item.name}：${item.keys.map((key) => (key === "成立来" ? "成立以来" : key)).join("、")}`);
+  const more = payload.calculationNeeded.length > 12 ? `\n还有 ${payload.calculationNeeded.length - 12} 支基金也有缺失。` : "";
+  return (
+    "指定日期的历史阶段收益在公开接口中没有直接披露，已先按严格口径显示为“暂无”。\n\n" +
+    "是否需要改按东方财富历史净值表里的累计净值计算这些缺失项？\n\n" +
+    lines.join("\n") +
+    more
+  );
+}
+
+function warningMessage(payload) {
+  if (!payload.warnings?.length) {
+    return "";
+  }
+  const seen = new Set();
+  const lines = [];
+  for (const item of payload.warnings) {
+    const key = `${item.code}-${item.reason}-${item.date}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    if (item.reason === "adjusted") {
+      lines.push(`${item.name}：${item.requestedDate} 无净值，已自动取之前最近净值日【${item.date}】`);
+    } else {
+      lines.push(`${item.name} 最新净值日是【${item.date}】`);
+    }
+  }
+  return `请注意：\n${lines.join("\n")}`;
 }
 
 async function queryReport() {
@@ -521,17 +686,24 @@ async function queryReport() {
   reportOutput.textContent = "正在联网查询公开基金数据，请稍等。";
 
   try {
-    const payload = await getReport(dateArg, funds, metrics);
-
+    let payload = await getReport(dateArg, funds, metrics);
     statusTitle.textContent = `已生成 ${payload.date}`;
     reportOutput.textContent = payload.report;
     copyBtn.disabled = false;
     renderRows(payload.rows, metrics);
-    if (payload.warnings?.length) {
-      alert(
-        `请注意，以下基金最新净值日不是 ${payload.date}：\n` +
-          payload.warnings.map((item) => `${item.name} 最新净值日是【${item.date}】`).join("\n"),
-      );
+    if (payload.needsCalculation && confirm(calculationConfirmMessage(payload))) {
+      setLoading(true);
+      reportOutput.textContent = "正在按历史累计净值计算缺失阶段收益，请稍等。";
+      payload = await getReportWithOptions(dateArg, funds, metrics, { allowNavCalculation: true });
+      statusTitle.textContent = `已生成 ${payload.date}`;
+      reportOutput.textContent = payload.report;
+      copyBtn.disabled = false;
+      renderRows(payload.rows, metrics);
+    }
+
+    const warning = warningMessage(payload);
+    if (warning) {
+      alert(warning);
     }
   } catch (error) {
     statusTitle.textContent = "未生成";
