@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>基金净值播报</title>
-    <link rel="stylesheet" href="web/styles.css?v=20260615-skip-unavailable" />
+    <link rel="stylesheet" href="web/styles.css?v=20260616-latest-dashboard" />
   </head>
   <body>
     <div id="loginOverlay" class="loginOverlay hidden">
@@ -22,21 +22,26 @@
 
     <main class="app">
       <section class="panel controls" aria-label="查询设置">
-        <div>
+        <div class="brandBlock">
           <p class="eyebrow">BoDao Fund Report</p>
           <h1>基金净值播报生成器</h1>
+          <p class="subhead">联网查询公开披露的最新净值和阶段收益，一键生成可复制文案。</p>
         </div>
 
-        <div class="mode" role="group" aria-label="查询方式">
-          <button id="latestBtn" class="modeButton active" type="button">查最新</button>
-          <button id="dateBtn" class="modeButton" type="button">指定日期</button>
+        <div class="summaryGrid" aria-label="查询摘要">
+          <div class="summaryItem">
+            <span>查询模式</span>
+            <strong>最新净值</strong>
+          </div>
+          <div class="summaryItem">
+            <span>默认产品</span>
+            <strong>8 支</strong>
+          </div>
+          <div class="summaryItem">
+            <span>数据来源</span>
+            <strong>东方财富</strong>
+          </div>
         </div>
-
-        <label class="field" id="dateField">
-          <span>净值日期</span>
-          <input id="dateInput" type="date" />
-          <small>非交易日会自动取该日期之前最近一个净值日。</small>
-        </label>
 
         <section class="fundPicker" aria-label="基金选择">
           <div class="pickerHeader">
@@ -67,7 +72,7 @@
         </button>
 
         <p class="hint">
-          默认使用天天基金/东方财富公开数据。指定日期会先按严格口径显示；若历史阶段收益缺失，可确认后按累计净值计算。
+          默认使用天天基金/东方财富公开数据。若部分产品最新净值日不同，会在文案和表格中提示。
         </p>
       </section>
 
@@ -80,7 +85,7 @@
           <button id="copyBtn" class="ghost" type="button" disabled>复制</button>
         </div>
 
-        <pre id="reportOutput" class="reportText">点击“查询并生成文案”后，真实数据会显示在这里。</pre>
+        <pre id="reportOutput" class="reportText">点击“查询并生成文案”后，最新真实数据会显示在这里。</pre>
 
         <div id="dataTableWrap" class="tableWrap hidden">
           <table>
@@ -93,6 +98,6 @@
       </section>
     </main>
 
-    <script src="web/app.js?v=20260615-skip-unavailable"></script>
+    <script src="web/app.js?v=20260616-latest-dashboard"></script>
   </body>
 </html>

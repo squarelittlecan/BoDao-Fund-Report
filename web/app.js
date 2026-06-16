@@ -1,7 +1,3 @@
-const latestBtn = document.querySelector("#latestBtn");
-const dateBtn = document.querySelector("#dateBtn");
-const dateField = document.querySelector("#dateField");
-const dateInput = document.querySelector("#dateInput");
 const queryBtn = document.querySelector("#queryBtn");
 const copyBtn = document.querySelector("#copyBtn");
 const statusTitle = document.querySelector("#statusTitle");
@@ -20,8 +16,6 @@ const metricList = document.querySelector("#metricList");
 const selectAllMetricsBtn = document.querySelector("#selectAllMetricsBtn");
 const clearAllMetricsBtn = document.querySelector("#clearAllMetricsBtn");
 const dataHead = document.querySelector("#dataHead");
-
-let mode = "latest";
 
 const products = [
   { name: "博道成长智航", code: "013641", showYtd: true },
@@ -82,13 +76,6 @@ const metricOptions = [
   { key: "近3年", label: "近三年", type: "stage", defaultChecked: false },
   { key: "近5年", label: "近五年", type: "stage", defaultChecked: false },
 ];
-
-function setMode(nextMode) {
-  mode = nextMode;
-  latestBtn.classList.toggle("active", mode === "latest");
-  dateBtn.classList.toggle("active", mode === "date");
-  dateField.classList.toggle("hidden", mode !== "date");
-}
 
 function renderFundPicker() {
   fundList.innerHTML = "";
@@ -661,19 +648,6 @@ async function getReportWithOptions(dateArg, selectedFunds, metrics, options = {
   }
 }
 
-function calculationConfirmMessage(payload) {
-  const lines = payload.calculationNeeded
-    .slice(0, 12)
-    .map((item) => `${item.name}：${item.keys.map((key) => (key === "成立来" ? "成立以来" : key)).join("、")}`);
-  const more = payload.calculationNeeded.length > 12 ? `\n还有 ${payload.calculationNeeded.length - 12} 支基金也有缺失。` : "";
-  return (
-    "指定日期的历史阶段收益在公开接口中没有直接披露，已先按严格口径显示为“暂无”。\n\n" +
-    "是否需要改按东方财富历史净值表里的累计净值计算这些缺失项？\n\n" +
-    lines.join("\n") +
-    more
-  );
-}
-
 function warningMessage(payload) {
   if (!payload.warnings?.length) {
     return "";
@@ -700,7 +674,7 @@ function warningMessage(payload) {
 }
 
 async function queryReport() {
-  const dateArg = mode === "latest" ? "latest" : dateInput.value;
+  const dateArg = "latest";
   const funds = selectedProducts();
   const metrics = selectedMetrics();
   if (!funds.length) {
@@ -711,13 +685,6 @@ async function queryReport() {
     copyBtn.disabled = true;
     return;
   }
-  if (mode === "date" && !dateArg) {
-    statusTitle.textContent = "请选择日期";
-    reportOutput.textContent = "请先选择一个净值日期。";
-    reportOutput.classList.add("error");
-    return;
-  }
-
   setLoading(true);
   copyBtn.disabled = true;
   dataTableWrap.classList.add("hidden");
@@ -731,15 +698,6 @@ async function queryReport() {
     reportOutput.textContent = payload.report;
     copyBtn.disabled = false;
     renderRows(payload.rows, metrics);
-    if (payload.needsCalculation && confirm(calculationConfirmMessage(payload))) {
-      setLoading(true);
-      reportOutput.textContent = "正在按历史累计净值计算缺失阶段收益，请稍等。";
-      payload = await getReportWithOptions(dateArg, funds, metrics, { allowNavCalculation: true });
-      statusTitle.textContent = `已生成 ${payload.date}`;
-      reportOutput.textContent = payload.report;
-      copyBtn.disabled = false;
-      renderRows(payload.rows, metrics);
-    }
 
     const warning = warningMessage(payload);
     if (warning) {
@@ -795,8 +753,6 @@ async function login(event) {
   loginOverlay.classList.add("hidden");
 }
 
-latestBtn.addEventListener("click", () => setMode("latest"));
-dateBtn.addEventListener("click", () => setMode("date"));
 queryBtn.addEventListener("click", queryReport);
 copyBtn.addEventListener("click", copyReport);
 loginForm.addEventListener("submit", login);
@@ -808,5 +764,4 @@ fundSearchInput.addEventListener("input", filterFunds);
 
 renderFundPicker();
 renderMetricPicker();
-setMode("latest");
 checkAuth();
