@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>基金净值播报</title>
-    <link rel="stylesheet" href="web/styles.css?v=20260616-latest-dashboard" />
+    <link rel="stylesheet" href="web/styles.css?v=20260616-loading-polish" />
   </head>
   <body>
     <div id="loginOverlay" class="loginOverlay hidden">
@@ -86,6 +86,19 @@
         </div>
 
         <pre id="reportOutput" class="reportText">点击“查询并生成文案”后，最新真实数据会显示在这里。</pre>
+        <div id="loadingSkeleton" class="skeletonWrap hidden" aria-hidden="true">
+          <div class="skeletonHeader">
+            <span></span>
+            <span></span>
+          </div>
+          <div class="skeletonBlock wide"></div>
+          <div class="skeletonBlock"></div>
+          <div class="skeletonBlock short"></div>
+          <div class="skeletonGap"></div>
+          <div class="skeletonBlock wide"></div>
+          <div class="skeletonBlock"></div>
+          <div class="skeletonBlock short"></div>
+        </div>
 
         <div id="dataTableWrap" class="tableWrap hidden">
           <table>
@@ -98,6 +111,6 @@
       </section>
     </main>
 
-    <script src="web/app.js?v=20260616-latest-dashboard"></script>
+    <script src="web/app.js?v=20260616-loading-polish"></script>
   </body>
 </html>

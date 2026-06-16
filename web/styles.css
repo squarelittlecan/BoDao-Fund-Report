@@ -313,6 +313,13 @@ input:focus {
   border-radius: 8px;
   border: 1px solid transparent;
   cursor: pointer;
+  transform: translateY(0);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .primary {
@@ -324,11 +331,19 @@ input:focus {
 
 .primary:hover:not(:disabled) {
   background: var(--accent-dark);
+  box-shadow: 0 16px 32px rgba(15, 118, 110, 0.28);
+  transform: translateY(-2px);
+}
+
+.primary:active:not(:disabled) {
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.24);
+  transform: translateY(0);
 }
 
 .primary:disabled {
   cursor: wait;
   opacity: 0.72;
+  transform: none;
 }
 
 .ghost {
@@ -341,6 +356,14 @@ input:focus {
 
 .ghost:hover:not(:disabled) {
   background: var(--soft);
+  border-color: var(--line-strong);
+  box-shadow: 0 8px 18px rgba(32, 35, 31, 0.08);
+  transform: translateY(-1px);
+}
+
+.ghost:active:not(:disabled) {
+  box-shadow: none;
+  transform: translateY(0);
 }
 
 .ghost:disabled {
@@ -392,8 +415,80 @@ input:focus {
     linear-gradient(90deg, var(--soft), var(--blue)) border-box;
 }
 
+.reportText.loading {
+  display: none;
+}
+
 .reportText.error {
   color: var(--danger);
+}
+
+.skeletonWrap {
+  min-height: 420px;
+  padding: 24px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  background: #fff;
+}
+
+.skeletonHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.skeletonHeader span,
+.skeletonBlock {
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef1eb;
+  position: relative;
+}
+
+.skeletonHeader span {
+  width: 140px;
+  height: 18px;
+}
+
+.skeletonHeader span:last-child {
+  width: 88px;
+}
+
+.skeletonBlock {
+  width: 72%;
+  height: 17px;
+}
+
+.skeletonBlock.wide {
+  width: 88%;
+  height: 24px;
+}
+
+.skeletonBlock.short {
+  width: 46%;
+}
+
+.skeletonGap {
+  height: 18px;
+}
+
+.skeletonHeader span::after,
+.skeletonBlock::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  animation: skeletonShimmer 1.25s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .tableWrap {
@@ -515,6 +610,11 @@ tbody tr:hover {
     line-height: 1.68;
   }
 
+  .skeletonWrap {
+    min-height: 320px;
+    padding: 16px;
+  }
+
   table {
     min-width: 680px;
     font-size: 13px;
@@ -523,6 +623,18 @@ tbody tr:hover {
   th,
   td {
     padding: 10px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary,
+  .ghost {
+    transition: none;
+  }
+
+  .skeletonHeader span::after,
+  .skeletonBlock::after {
+    animation: none;
   }
 }
 

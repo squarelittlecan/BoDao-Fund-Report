@@ -2,6 +2,7 @@ const queryBtn = document.querySelector("#queryBtn");
 const copyBtn = document.querySelector("#copyBtn");
 const statusTitle = document.querySelector("#statusTitle");
 const reportOutput = document.querySelector("#reportOutput");
+const loadingSkeleton = document.querySelector("#loadingSkeleton");
 const dataTableWrap = document.querySelector("#dataTableWrap");
 const dataRows = document.querySelector("#dataRows");
 const loginOverlay = document.querySelector("#loginOverlay");
@@ -149,6 +150,8 @@ function selectedMetrics() {
 function setLoading(isLoading) {
   queryBtn.disabled = isLoading;
   queryBtn.textContent = isLoading ? "正在查询真实数据..." : "查询并生成文案";
+  loadingSkeleton.classList.toggle("hidden", !isLoading);
+  reportOutput.classList.toggle("loading", isLoading);
 }
 
 function tableColumns(metrics) {
