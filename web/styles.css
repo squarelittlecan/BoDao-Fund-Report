@@ -432,6 +432,10 @@ input:focus {
   background: #fff;
 }
 
+.skeletonWrap.hidden {
+  display: none;
+}
+
 .skeletonHeader {
   display: flex;
   justify-content: space-between;
